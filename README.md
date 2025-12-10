@@ -1,6 +1,8 @@
 # Multidimensional JSON NoSQL REST API
 
-A FastAPI-powered REST server that stores N-dimensional JSON data inside a single JSON file.  
+A FastAPI-powered REST server that stores N-dimensional JSON data inside a single JSON file.
+
+> **See also:** [USE_CASES.md](USE_CASES.md) — a concise overview of practical applications and patterns enabled by this multidimensional JSON storage model.  
 You can initialize the database with any number of dimensions and read/write values using coordinates.
 
 ---
@@ -120,3 +122,4 @@ curl -X POST http://localhost:8000/slice   -H "Content-Type: application/json"  
 ```bash
 curl -X DELETE http://localhost:8000/item   -H "Content-Type: application/json"   -d '{"coords": ["user1", "2025-01-01", "orders"]}'
 ```
+

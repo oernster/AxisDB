@@ -120,17 +120,3 @@ curl -X POST http://localhost:8000/slice   -H "Content-Type: application/json"  
 ```bash
 curl -X DELETE http://localhost:8000/item   -H "Content-Type: application/json"   -d '{"coords": ["user1", "2025-01-01", "orders"]}'
 ```
-
----
-
-# Project Structure (recommended)
-
-```
-multidb/
-├─ app.py
-├─ db.py
-├─ schemas.py
-├─ config.py
-├─ requirements.txt
-└─ README.md
-```

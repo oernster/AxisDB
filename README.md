@@ -46,15 +46,6 @@ From within the activated venv:
 pip install -r requirements.txt
 ```
 
-Your `requirements.txt` should contain:
-
-```
-fastapi
-uvicorn
-```
-
----
-
 # Running the Server
 
 Inside the project folder:

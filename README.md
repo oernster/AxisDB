@@ -5,6 +5,8 @@ A FastAPI-powered REST server that stores N-dimensional JSON data inside a singl
 > **See also:** [USE_CASES.md](USE_CASES.md) — a concise overview of practical applications and patterns enabled by this multidimensional JSON storage model.  
 You can initialize the database with any number of dimensions and read/write values using coordinates.
 
+### If you like it please buy me a coffee: [Donation link](https://www.paypal.com/ncp/payment/7XYN6DCYK24VY)
+
 ---
 
 ## Features

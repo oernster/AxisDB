@@ -17,7 +17,7 @@ from pathlib import Path
 
 import portalocker
 
-from multidb.errors import LockError
+from axisdb.errors import LockError
 
 
 class LockMode(str, Enum):

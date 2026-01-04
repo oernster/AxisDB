@@ -1,6 +1,6 @@
-# MultiDimensionalDB
+# AxisDB
 
-MultiDimensionalDB v2 is a tiny embedded document database for Python.
+AxisDB is a tiny embedded document database for Python.
 
 Key properties:
 
@@ -24,6 +24,78 @@ You can initialize the database with any number of dimensions and read/write val
 - Atomic commit and recovery
 - Prefix key listing and basic querying
 - Optional FastAPI wrapper with Swagger (`/docs`) and ReDoc (`/redoc`)
+
+## Compatibility promises
+
+This project follows semantic versioning for the public Python API.
+
+Stable (backwards compatible within a major version):
+
+- Public API surface of [`AxisDB`](axisdb/api.py:1): `open`, `create`, `get`, `set`, `delete`, `exists`, `list`, `slice`, `find`, `commit`, `rollback`.
+- Public exception types in [`axisdb/errors.py`](axisdb/errors.py:1).
+- On-disk file format `format=axisdb` and `format_version=2` in [`axisdb/engine/storage.py`](axisdb/engine/storage.py:1).
+
+May change in minor versions:
+
+- Internal module organization and private/internal attributes.
+- Index query planning details (which predicates are index-accelerated).
+
+Breaking changes will only occur in the next major version.
+
+## Query and indexing (MVP, but useful)
+
+AxisDB is optimized for correctness and simple, real-world scans.
+Indexes are rebuilt on commit (durable, deterministic) and used to reduce scan work.
+
+### Indexes
+
+- Prefix index: always maintained on commit. Accelerates prefix scans.
+- Field indexes: optional; define and persist on commit.
+
+Define a field index:
+
+```python
+from axisdb import AxisDB
+
+db = AxisDB.create("./mydb.json", dimensions=2)
+db.define_field_index("by_customer_id", ("customer_id",))
+```
+
+### Killer query 1: prefix constraint + field equality
+
+Example: all documents under the `("orders", *)` prefix for a specific customer.
+
+```python
+from axisdb.query.ast import Field
+
+rows = db.find(prefix=("orders",), where=Field(("customer_id",), "==", "c2"))
+```
+
+Candidate selection behavior:
+
+- If a matching field index exists for `("customer_id",)` and there is no uncommitted overlay, `find()` uses the field index then applies the prefix filter.
+- Otherwise it falls back to prefix scanning (or full scan).
+
+Complexity (high level):
+
+- With field index: O(m) candidates where m is number of matching field values (plus prefix filter cost).
+- Without field index: O(k) where k is number of keys in the prefix range.
+
+### Killer query 2: prefix-only scan + richer predicate
+
+Example: scan one prefix range and apply a richer predicate.
+
+```python
+rows = db.find(
+    prefix=("orders",),
+    where=lambda doc: doc.get("amount", 0) >= 100,
+)
+```
+
+Limits:
+
+- Callable predicates are always a scan of the candidate set; they are not index-accelerated.
+- Field index acceleration currently applies only to simple equality: `Field(path) == literal`.
 
 ---
 
@@ -58,27 +130,27 @@ uv venv .venv
 uv pip install -r requirements.txt --python .venv\Scripts\python.exe
 ```
 
-## Library usage (v2)
+## Library usage
 
 Create/open a database and commit writes:
 
 ```python
-from multidb import MultiDB
+from axisdb import AxisDB
 
-db = MultiDB.create("./mydb.json", dimensions=2)
+db = AxisDB.create("./mydb.json", dimensions=2)
 db.set(("user1", "orders"), {"count": 3})
 db.commit()
 
-ro = MultiDB.open("./mydb.json", mode="r")
+ro = AxisDB.open("./mydb.json", mode="r")
 print(ro.get(("user1", "orders")))
 ```
 
-## Running the FastAPI wrapper (v2)
+## Running the FastAPI wrapper
 
 Inside the project folder:
 
 ```powershell
-.\.venv\Scripts\python.exe -m uvicorn multidb.server.app:app --reload
+.\.venv\Scripts\python.exe -m uvicorn axisdb.server.app:app --reload
 ```
 
 The server will start at:

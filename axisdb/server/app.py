@@ -1,8 +1,8 @@
-"""FastAPI wrapper over the MultiDB library.
+"""FastAPI wrapper over the AxisDB library.
 
 This is intentionally a thin layer:
 - It does not implement database logic.
-- It converts HTTP requests into calls to [`MultiDB`](multidb/api.py:1).
+- It converts HTTP requests into calls to [`AxisDB`](axisdb/api.py:1).
 """
 
 from __future__ import annotations
@@ -12,17 +12,17 @@ from typing import Any
 
 from fastapi import Body, FastAPI, HTTPException, Query
 
-from multidb import MultiDB
-from multidb.errors import (
+from axisdb import AxisDB
+from axisdb.errors import (
     LockError,
     ReadOnlyError,
     StorageCorruptionError,
     ValidationError,
 )
-from multidb.query.ast import Field
-from multidb.server.schemas import DeleteBody, InitResponse, ItemBody
+from axisdb.query.ast import Field
+from axisdb.server.schemas import DeleteBody, InitResponse, ItemBody
 
-app = FastAPI(title="MultiDimensionalDB v2")
+app = FastAPI(title="AxisDB")
 
 
 def _to_http(exc: Exception) -> HTTPException:
@@ -40,7 +40,7 @@ def _to_http(exc: Exception) -> HTTPException:
 @app.get("/info")
 def info(path: str) -> dict[str, Any]:
     try:
-        db = MultiDB.open(path, mode="r")
+        db = AxisDB.open(path, mode="r")
         return {"path": str(Path(path)), "dimensions": db.dimensions, "mode": "r"}
     except Exception as exc:  # noqa: BLE001
         raise _to_http(exc) from exc
@@ -49,7 +49,7 @@ def info(path: str) -> dict[str, Any]:
 @app.post("/init")
 def init_db(path: str, dimensions: int, overwrite: bool = False) -> InitResponse:
     try:
-        db = MultiDB.create(path, dimensions=dimensions, overwrite=overwrite)
+        db = AxisDB.create(path, dimensions=dimensions, overwrite=overwrite)
         return InitResponse(
             path=str(Path(path)),
             dimensions=db.dimensions,
@@ -62,7 +62,7 @@ def init_db(path: str, dimensions: int, overwrite: bool = False) -> InitResponse
 @app.post("/item")
 def set_item(path: str, body: ItemBody = Body(...)) -> dict[str, Any]:
     try:
-        with MultiDB.open(path, mode="rw") as db:
+        with AxisDB.open(path, mode="rw") as db:
             db.set(tuple(body.coords), body.value)
             db.commit()
         return {"coords": body.coords, "value": body.value}
@@ -73,7 +73,7 @@ def set_item(path: str, body: ItemBody = Body(...)) -> dict[str, Any]:
 @app.get("/item")
 def get_item(path: str, coords: list[str] = Query(...)) -> dict[str, Any]:
     try:
-        db = MultiDB.open(path, mode="r")
+        db = AxisDB.open(path, mode="r")
         value = db.get(tuple(coords))
         return {"coords": coords, "value": value}
     except Exception as exc:  # noqa: BLE001
@@ -83,7 +83,7 @@ def get_item(path: str, coords: list[str] = Query(...)) -> dict[str, Any]:
 @app.delete("/item")
 def delete_item(path: str, body: DeleteBody = Body(...)) -> dict[str, Any]:
     try:
-        with MultiDB.open(path, mode="rw") as db:
+        with AxisDB.open(path, mode="rw") as db:
             db.delete(tuple(body.coords))
             db.commit()
         return {"coords": body.coords, "deleted": True}
@@ -96,7 +96,7 @@ def list_items(
     path: str, prefix: list[str] | None = None, depth: int | None = None
 ) -> dict[str, Any]:
     try:
-        db = MultiDB.open(path, mode="r")
+        db = AxisDB.open(path, mode="r")
         keys = db.list(prefix=tuple(prefix or ()), depth=depth)
         return {"keys": [list(k) for k in keys]}
     except Exception as exc:  # noqa: BLE001
@@ -118,7 +118,7 @@ def find_items(
     """
 
     try:
-        db = MultiDB.open(path, mode="r")
+        db = AxisDB.open(path, mode="r")
         expr = None
         if field is not None:
             expr = Field(tuple(field), op, value)  # type: ignore[arg-type]

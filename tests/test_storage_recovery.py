@@ -5,13 +5,13 @@ from pathlib import Path
 
 import pytest
 
-from multidb.engine.storage import (
+from axisdb.engine.storage import (
     StoragePaths,
     default_payload,
     read_validated,
     recover_if_needed,
 )
-from multidb.errors import StorageCorruptionError
+from axisdb.errors import StorageCorruptionError
 
 
 def test_recovery_promotes_tmp_when_main_missing(tmp_path: Path) -> None:

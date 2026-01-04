@@ -4,20 +4,20 @@ import multiprocessing as mp
 import time
 from pathlib import Path
 
-from multidb import MultiDB
-from multidb.errors import LockError
+from axisdb import AxisDB
+from axisdb.errors import LockError
 
 
 def _writer_hold_open(db_path: str, hold_s: float) -> None:
     # Hold the writer lock for a bit.
-    db = MultiDB.open(db_path, mode="rw")
+    db = AxisDB.open(db_path, mode="rw")
     time.sleep(hold_s)
     db.rollback()
 
 
 def _writer_try_open(db_path: str, q: mp.Queue) -> None:
     try:
-        db = MultiDB.open(db_path, mode="rw")
+        db = AxisDB.open(db_path, mode="rw")
         db.rollback()
         q.put(True)
     except LockError:
@@ -26,7 +26,7 @@ def _writer_try_open(db_path: str, q: mp.Queue) -> None:
 
 def test_two_writers_cannot_open_concurrently(tmp_path: Path) -> None:
     db_path = tmp_path / "db.json"
-    MultiDB.create(db_path, dimensions=1)
+    AxisDB.create(db_path, dimensions=1)
 
     q: mp.Queue = mp.Queue()
 
@@ -45,13 +45,13 @@ def test_two_writers_cannot_open_concurrently(tmp_path: Path) -> None:
 
 
 def _reader_get(db_path: str, q: mp.Queue) -> None:
-    db = MultiDB.open(db_path, mode="r")
+    db = AxisDB.open(db_path, mode="r")
     q.put(db.get(("a",)))
 
 
 def test_reader_can_open_while_writer_session_exists(tmp_path: Path) -> None:
     db_path = tmp_path / "db.json"
-    db = MultiDB.create(db_path, dimensions=1)
+    db = AxisDB.create(db_path, dimensions=1)
     db.set(("a",), 123)
     db.commit()
 

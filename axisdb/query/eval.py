@@ -1,12 +1,12 @@
-"""Query evaluation for MultiDimensionalDB v2."""
+"""Query evaluation for AxisDB."""
 
 from __future__ import annotations
 
 from collections.abc import Iterable
 from typing import Any
 
-from multidb.engine.keycodec import decode_key
-from multidb.query.ast import And, Expr, Field, KeyDim, Not, Op, Or
+from axisdb.engine.keycodec import decode_key
+from axisdb.query.ast import And, Expr, Field, KeyDim, Not, Op, Or
 
 
 def _contains(container: Any, item: Any) -> bool:

@@ -42,3 +42,7 @@ class Field(Expr):
     path: tuple[str, ...]
     op: Op
     value: Any
+
+
+def is_simple_field_equality(expr: Expr) -> bool:
+    return isinstance(expr, Field) and expr.op == "=="

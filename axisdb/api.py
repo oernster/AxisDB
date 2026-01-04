@@ -1,8 +1,8 @@
-"""Public API for MultiDimensionalDB v2.
+"""Public API for AxisDB.
 
 This module intentionally keeps the public surface small and typed.
-Engine details live in [`multidb.engine.storage`](multidb/engine/storage.py:1),
-[`multidb.engine.locking`](multidb/engine/locking.py:1), and other `multidb.*` modules.
+Engine details live in [`axisdb.engine.storage`](axisdb/engine/storage.py:1),
+[`axisdb.engine.locking`](axisdb/engine/locking.py:1), and other `axisdb.*` modules.
 """
 
 from __future__ import annotations
@@ -12,9 +12,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 
-from multidb.engine.keycodec import decode_key, encode_key
-from multidb.engine.locking import FileLock, FileLockSpec, LockMode, LockPaths
-from multidb.engine.storage import (
+from axisdb.engine.keycodec import decode_key, encode_key
+from axisdb.engine.locking import FileLock, FileLockSpec, LockMode, LockPaths
+from axisdb.engine.storage import (
     FieldIndexDef,
     StoragePaths,
     default_payload,
@@ -22,17 +22,24 @@ from multidb.engine.storage import (
     recover_if_needed,
     write_atomic,
 )
-from multidb.errors import ReadOnlyError, StorageCorruptionError, ValidationError
-from multidb.index.fields import rebuild_field_indexes
-from multidb.index.prefix import rebuild_prefix_keys, select_prefix_range
-from multidb.query.ast import Expr
-from multidb.query.eval import evaluate
+from axisdb.errors import (
+    InvalidCoordsError,
+    NonJsonSerializableValueError,
+    ReadOnlyError,
+    StorageCorruptionError,
+    ValidationError,
+    WrongDimensionLengthError,
+)
+from axisdb.index.fields import canonical_value_key, rebuild_field_indexes
+from axisdb.index.prefix import rebuild_prefix_keys, select_prefix_range
+from axisdb.query.ast import Expr, Field, is_simple_field_equality
+from axisdb.query.eval import evaluate
 
 OpenMode = Literal["r", "rw"]
 
 
 @dataclass
-class MultiDB:
+class AxisDB:
     """Main database handle.
 
     Implementation is added incrementally; this file is the stable public
@@ -59,9 +66,7 @@ class MultiDB:
     _storage_paths: StoragePaths = field(init=False)
 
     @classmethod
-    def open(
-        cls, path: str | Path, mode: OpenMode = "rw", lock: bool = True
-    ) -> MultiDB:
+    def open(cls, path: str | Path, mode: OpenMode = "rw", lock: bool = True) -> AxisDB:
         db = cls(path=Path(path), mode=mode, lock=lock)
         db._initialize()
         return db
@@ -74,8 +79,8 @@ class MultiDB:
         dimensions: int,
         overwrite: bool = False,
         lock: bool = True,
-    ) -> MultiDB:
-        """Create a new v2 database file.
+    ) -> AxisDB:
+        """Create a new database file.
 
         This is a convenience helper (not part of the minimal API shape in the spec),
         required to bootstrap a database because dimensions are fixed at creation time.
@@ -94,7 +99,31 @@ class MultiDB:
     def dimensions(self) -> int:
         return self._dimensions
 
-    def __enter__(self) -> MultiDB:
+    def define_field_index(self, name: str, path: tuple[str, ...] | list[str]) -> None:
+        """Define a field index stored in DB metadata and rebuilt on commit.
+
+        This is a correctness-first MVP feature:
+        - Indexes are rebuilt on each commit.
+        - `find()` can use the index for simple `Field(path) == literal` queries.
+        """
+
+        self._assert_writable()
+        if not name or not isinstance(name, str):
+            raise ValidationError("index name must be a non-empty string")
+        if not isinstance(path, (list, tuple)) or not all(
+            isinstance(p, str) for p in path
+        ):
+            raise ValidationError("index path must be a list/tuple of strings")
+
+        idx: FieldIndexDef = {"name": name, "path": list(path)}
+
+        # Replace existing definition with same name.
+        self._field_index_defs = [
+            d for d in self._field_index_defs if d["name"] != name
+        ]
+        self._field_index_defs.append(idx)
+
+    def __enter__(self) -> AxisDB:
         return self
 
     def __exit__(
@@ -169,8 +198,12 @@ class MultiDB:
             raise ReadOnlyError("Database opened in read-only mode")
 
     def _assert_key(self, key: tuple[str, ...]) -> None:
+        if not isinstance(key, tuple):
+            raise InvalidCoordsError("Key must be a tuple[str, ...]")
+        if not all(isinstance(c, str) for c in key):
+            raise InvalidCoordsError("All key components must be strings")
         if len(key) != self._dimensions:
-            raise ValidationError(
+            raise WrongDimensionLengthError(
                 f"Expected {self._dimensions} key components, got {len(key)}"
             )
 
@@ -201,7 +234,9 @@ class MultiDB:
         try:
             json.dumps(value)
         except TypeError as exc:
-            raise ValidationError("Value is not JSON-serializable") from exc
+            raise NonJsonSerializableValueError(
+                "Value is not JSON-serializable"
+            ) from exc
 
         ek = encode_key(key)
         self._overlay_set[ek] = value
@@ -368,21 +403,53 @@ class MultiDB:
     def _candidate_keys(self, prefix: tuple[str, ...], where: object) -> list[str]:
         """Return candidate encoded keys.
 
-        MVP: only uses prefix index (no AST-to-index extraction yet).
+        Optimizations (correctness-first):
+        - Uses prefix index when available.
+        - Uses field index for simple `Field(path) == literal` queries when configured.
         """
 
         all_keys = self._materialized_keys()
-        if not prefix:
-            return all_keys
 
-        # Try prefix index if it matches current materialized base (no overlay).
-        if not self._overlay_set and not self._overlay_del and self._base_prefix_keys:
+        # Base-only index usage is only safe when there is no overlay.
+        can_use_indexes = (
+            not self._overlay_set and not self._overlay_del and self._base_prefix_keys
+        )
+
+        # 1) Field index (if enabled and query is simple equality)
+        if (
+            can_use_indexes
+            and isinstance(where, Expr)
+            and is_simple_field_equality(where)
+            and isinstance(where, Field)
+        ):
+            # Find the configured index with an identical path.
+            index_name = None
+            for d in self._field_index_defs:
+                if tuple(d["path"]) == tuple(where.path):
+                    index_name = d["name"]
+                    break
+
+            if index_name is not None:
+                vkey = canonical_value_key(where.value)
+                candidates = self._base_field_indexes.get(index_name, {}).get(vkey, [])
+
+                # Apply prefix restriction on top.
+                if prefix:
+                    ep = encode_key(prefix)
+                    return [k for k in candidates if k.startswith(ep + "/") or k == ep]
+                return list(candidates)
+
+        # 2) Prefix index
+        if prefix:
+            if can_use_indexes:
+                ep = encode_key(prefix)
+                lo, hi = select_prefix_range(self._base_prefix_keys, ep)
+                return self._base_prefix_keys[lo:hi]
+
             ep = encode_key(prefix)
-            lo, hi = select_prefix_range(self._base_prefix_keys, ep)
-            return self._base_prefix_keys[lo:hi]
+            return [k for k in all_keys if k.startswith(ep + "/") or k == ep]
 
-        ep = encode_key(prefix)
-        return [k for k in all_keys if k.startswith(ep + "/") or k == ep]
+        return all_keys
 
     def _materialized_keys(self) -> list[str]:
         keys = set(self._base_data.keys())

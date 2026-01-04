@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from multidb.engine.keycodec import decode_key, encode_key
-from multidb.errors import ValidationError
+from axisdb.engine.keycodec import decode_key, encode_key
+from axisdb.errors import ValidationError
 
 
 @pytest.mark.parametrize(

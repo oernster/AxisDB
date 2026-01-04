@@ -1,4 +1,4 @@
-"""On-disk storage for MultiDimensionalDB v2.
+"""On-disk storage for AxisDB.
 
 Design goals:
 
@@ -17,9 +17,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, TypedDict, cast
 
-from multidb.errors import StorageCorruptionError, ValidationError
+from axisdb.errors import StorageCorruptionError, ValidationError
 
-FORMAT_NAME = "multidb"
+FORMAT_NAME = "axisdb"
 FORMAT_VERSION = 2
 
 

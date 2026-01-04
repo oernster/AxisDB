@@ -8,10 +8,10 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from multidb.engine.storage import FieldIndexDef
+from axisdb.engine.storage import FieldIndexDef
 
 
-def _canonical_value_key(value: Any) -> str:
+def canonical_value_key(value: Any) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
 
@@ -36,7 +36,7 @@ def rebuild_field_indexes(
             extracted = _extract_field(doc, d["path"])
             if extracted is None:
                 continue
-            vkey = _canonical_value_key(extracted)
+            vkey = canonical_value_key(extracted)
             bucket = out[d["name"]].setdefault(vkey, [])
             bucket.append(encoded_key)
 

@@ -12,7 +12,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Sequence
 from urllib.parse import quote, unquote
 
-from multidb.errors import ValidationError
+from axisdb.errors import ValidationError
 
 _SEP = "/"
 

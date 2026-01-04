@@ -1,20 +1,20 @@
-# MultiDimensionalDB v2 — Architectural Overview
+# AxisDB — Architectural Overview
 
-This document describes the architecture of MultiDimensionalDB v2 as implemented in this repository.
+This document describes the architecture of AxisDB as implemented in this repository.
 
 Goals prioritized: correctness, durability, and testability over performance.
 
 ## 1. What this project is
 
-MultiDimensionalDB v2 is a small embedded document database implemented as a Python library with an optional FastAPI wrapper.
+AxisDB is a small embedded document database implemented as a Python library with an optional FastAPI wrapper.
 
 - Embedded: local file storage; no networking in the core.
 - Document DB: values are JSON-serializable documents (or JSON-compatible primitives).
 - Multi-dimensional keys: keys are N-dimensional coordinate paths (sequence of strings).
 
-Primary entrypoint: [`MultiDB`](multidb/api.py:1)
+Primary entrypoint: [`AxisDB`](axisdb/api.py:1)
 
-Optional REST wrapper: [`multidb.server.app:app`](multidb/server/app.py:1)
+Optional REST wrapper: [`axisdb.server.app:app`](axisdb/server/app.py:1)
 
 ## 2. High-level architecture
 
@@ -36,7 +36,7 @@ External form: `tuple[str, ...]` with length `N` where `N = dimensions`.
 
 On-disk form: a single encoded string, constructed by percent-encoding each component and joining with `/`.
 
-Key codec: [`multidb.engine.keycodec`](multidb/engine/keycodec.py:1)
+Key codec: [`axisdb.engine.keycodec`](axisdb/engine/keycodec.py:1)
 
 ### 3.2 Values
 
@@ -50,7 +50,7 @@ The library validates serializability on `set()`.
 
 The database is stored as a single JSON file with a stable schema (format name and version).
 
-Storage code: [`multidb.engine.storage`](multidb/engine/storage.py:1)
+Storage code: [`axisdb.engine.storage`](axisdb/engine/storage.py:1)
 
 Key fields:
 
@@ -68,7 +68,7 @@ Commit writes to a temp file and then atomically replaces the main file:
 3. Replace main file via `os.replace(tmp, path)`.
 4. Best-effort directory fsync.
 
-Commit code: [`write_atomic()`](multidb/engine/storage.py:1)
+Commit code: [`write_atomic()`](axisdb/engine/storage.py:1)
 
 Correctness goal: after a crash, the database is either the old valid file or the new valid file, not a torn partial write.
 
@@ -76,7 +76,7 @@ Correctness goal: after a crash, the database is either the old valid file or th
 
 On open, recovery checks for an orphaned temp file and promotes it if needed.
 
-Recovery code: [`recover_if_needed()`](multidb/engine/storage.py:1)
+Recovery code: [`recover_if_needed()`](axisdb/engine/storage.py:1)
 
 Recovery rules:
 
@@ -88,7 +88,7 @@ Recovery rules:
 
 Design target: single writer, multiple readers, cross-platform.
 
-Locking code: [`multidb.engine.locking`](multidb/engine/locking.py:1)
+Locking code: [`axisdb.engine.locking`](axisdb/engine/locking.py:1)
 
 Two lock files are used:
 
@@ -97,8 +97,8 @@ Two lock files are used:
 
 Integration points:
 
-- Writer lock acquired in [`MultiDB._initialize()`](multidb/api.py:1) when opened with `mode='rw'`.
-- Commit acquires an exclusive rw lock in [`MultiDB.commit()`](multidb/api.py:1).
+- Writer lock acquired in [`AxisDB._initialize()`](axisdb/api.py:1) when opened with `mode='rw'`.
+- Commit acquires an exclusive rw lock in [`AxisDB.commit()`](axisdb/api.py:1).
 - Read-only operations load from disk and use shared rw locking during file read.
 
 ## 6. Transaction semantics
@@ -110,7 +110,7 @@ Integration points:
 - `commit()` materializes a new on-disk state and clears the overlay.
 - `rollback()` discards overlay and reloads base state from disk.
 
-Implementation: [`multidb.api`](multidb/api.py:1)
+Implementation: [`axisdb.api`](axisdb/api.py:1)
 
 `mode='r'` is read-only; each read operation reloads from disk to reflect the latest committed state.
 
@@ -124,7 +124,7 @@ Purpose: accelerate prefix key scans.
 
 Representation: sorted list of all encoded keys.
 
-Implementation: [`multidb.index.prefix`](multidb/index/prefix.py:1)
+Implementation: [`axisdb.index.prefix`](axisdb/index/prefix.py:1)
 
 ### 7.2 Field indexes
 
@@ -132,24 +132,24 @@ Purpose: optional acceleration for field-based predicates.
 
 Representation: `index_name -> canonical_value -> [encoded_keys...]`.
 
-Implementation: [`multidb.index.fields`](multidb/index/fields.py:1)
+Implementation: [`axisdb.index.fields`](axisdb/index/fields.py:1)
 
-Note: current `find()` uses the prefix index as the primary candidate filter; field indexes are persisted and rebuilt but not yet used for candidate selection.
+Note: `find()` uses the prefix index as the primary candidate filter and can use field indexes for simple equality predicates.
 
 ## 8. Query system
 
 Queries are represented as a small expression tree (AST) and evaluated against candidate documents.
 
-AST: [`multidb.query.ast`](multidb/query/ast.py:1)
+AST: [`axisdb.query.ast`](axisdb/query/ast.py:1)
 
-Evaluator: [`multidb.query.eval`](multidb/query/eval.py:1)
+Evaluator: [`axisdb.query.eval`](axisdb/query/eval.py:1)
 
-`MultiDB.find()` supports:
+`AxisDB.find()` supports:
 
 - Prefix restriction.
 - `where` as either an AST expression or a Python callable.
 
-See: [`MultiDB.find()`](multidb/api.py:1)
+See: [`AxisDB.find()`](axisdb/api.py:1)
 
 ## 9. Slice API
 
@@ -162,15 +162,15 @@ Selectors per dimension:
 - `list/tuple/set[str]`: membership match
 - `callable`: predicate on the component
 
-Implementation: [`MultiDB.slice()`](multidb/api.py:1)
+Implementation: [`AxisDB.slice()`](axisdb/api.py:1)
 
 ## 10. FastAPI wrapper
 
 The FastAPI app is a thin translation layer that maps HTTP requests to library operations.
 
-App module: [`multidb.server.app`](multidb/server/app.py:1)
+App module: [`axisdb.server.app`](axisdb/server/app.py:1)
 
-Request body models: [`multidb.server.schemas`](multidb/server/schemas.py:1)
+Request body models: [`axisdb.server.schemas`](axisdb/server/schemas.py:1)
 
 The wrapper does not bypass durability or locking; it opens the library with appropriate modes for each endpoint.
 

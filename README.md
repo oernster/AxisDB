@@ -10,10 +10,8 @@ Key properties:
 - Safe multi-process access (single writer, multiple readers)
 - Minimal indexing and query support (MVP)
 
-> **See also:** [USE_CASES.md](USE_CASES.md) — a concise overview of practical applications and patterns enabled by this multidimensional JSON storage model.  
+> **See also:** USE_CASES.md — a concise overview of practical applications and patterns enabled by this multidimensional JSON storage model.  
 You can initialize the database with any number of dimensions and read/write values using coordinates.
-
-### If you like it please buy me a coffee: [Donation link](https://www.paypal.com/ncp/payment/Z36XJEEA4MNV6)
 
 ---
 

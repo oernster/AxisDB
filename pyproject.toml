@@ -1,3 +1,37 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "axisdb"
+version = "2.1.0"
+description = "Tiny embedded document database for Python with N-dimensional coordinate keys."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [{ name = "Oliver Ernster" }]
+keywords = ["database", "embedded", "json", "storage", "coordinates", "multidimensional"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://github.com/oernster/AxisDB"
+Repository = "https://github.com/oernster/AxisDB"
+Issues = "https://github.com/oernster/AxisDB/issues"
+
+# Optional: install server deps with `pip install "axisdb[server]"`
+[project.optional-dependencies]
+server = ["fastapi", "uvicorn"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["axisdb*"]
+
 [tool.black]
 line-length = 88
 target-version = ["py311"]
@@ -18,5 +52,3 @@ ignore = [
   "E501",         # line length handled by black
   "B008",         # FastAPI dependency injection uses call expressions in defaults
 ]
-
-

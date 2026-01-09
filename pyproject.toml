@@ -4,11 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "axisdb"
-version = "1.0.5"
+version = "1.0.6"
 description = "Tiny embedded document database for Python with N-dimensional coordinate keys."
 readme = "README.md"
 requires-python = ">=3.11"
-license = { file = "LICENSE" }
+# `project.license` as a TOML table is deprecated in setuptools; use SPDX + license-files.
+license = "GPL-3.0-only"
+license-files = ["LICENSE"]
 authors = [{ name = "Oliver Ernster" }]
 keywords = ["database", "embedded", "json", "storage", "coordinates", "multidimensional"]
 dependencies = ["portalocker>=2.0.0"]

@@ -33,13 +33,7 @@ The minimal-public-API rule is right and `__all__` holding one name is right. `_
 
 The commit history shows the cost of the current arrangement directly: four of the last eight commits are "Bump version". That is a manual edit to `pyproject.toml` and nothing else, which is exactly the step a `VERSION` file removes.
 
-## 3. Six em dashes, five of them in the PyPI long description
-
-`README.md` is declared as `readme = "README.md"` in `pyproject.toml`, so it is rendered as the project page on PyPI. It contains five em dashes (lines 8, 83, 85, 158 and 159), and `ARCHITECTURE.md` contains a sixth in its own title.
-
-The em-dash ban is absolute across the portfolio, and these are the most publicly visible instances of it anywhere in the account. Replace with a colon, a comma or parentheses. Fifteen minutes, and it is the front page of the one thing here that strangers install.
-
-## 4. `axisdb/api.py` is 509 lines
+## 3. `axisdb/api.py` is 509 lines
 
 The single largest module in the repository and the only one over 400. It is the public facade, so it legitimately carries every entry point (`list`, `slice`, `find`, index management, session lifecycle, commit), and a facade is expected to be wide.
 
@@ -47,7 +41,7 @@ Wide is not the same as long. 509 lines means the facade is also implementing ra
 
 There is also no structural test asserting the cap, so nothing reports this. A single size assertion beside the existing tests would cost almost nothing at this scale.
 
-## 5. Nothing enforces the layering
+## 4. Nothing enforces the layering
 
 `axisdb/engine/` (storage, key codec, indexes) and `axisdb/server/` (the FastAPI wrapper) are cleanly separated today, and `api.py` sits between them. Nothing holds that separation.
 

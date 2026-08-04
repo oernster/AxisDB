@@ -84,9 +84,9 @@ AxisDB is optimized for correctness and predictable behavior over complex query 
 
 ### Index types
 
-- **Prefix index** — always maintained; used by `find(prefix=...)` to reduce scan work
+- **Prefix index**: always maintained; used by `find(prefix=...)` to reduce scan work
   (note: `list(prefix=...)` currently filters materialized keys directly).
-- **Field indexes** — optional, user-defined; can accelerate simple equality predicates of the form
+- **Field indexes**: optional, user-defined; can accelerate simple equality predicates of the form
   `Field(("path", "to", "field"), "==", literal)`.
 
 Define a field index:
@@ -159,8 +159,8 @@ The wrapper does not bypass durability or locking: it opens the database in `mod
 
 By default (`lock=True`), AxisDB uses two lock files next to the database file:
 
-- `*.writer.lock` — exclusive lock held for the lifetime of a writer session (`mode="rw"`)
-- `*.rw.lock` — shared during reads; exclusive during `commit()`
+- `*.writer.lock`: exclusive lock held for the lifetime of a writer session (`mode="rw"`)
+- `*.rw.lock`: shared during reads; exclusive during `commit()`
 
 This supports **single-writer / multiple-reader** access across processes.
 

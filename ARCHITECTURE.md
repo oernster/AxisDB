@@ -1,4 +1,4 @@
-# AxisDB — Architectural Overview
+# AxisDB: Architectural Overview
 
 This document describes the architecture of AxisDB as implemented in this repository.
 Goals prioritized: correctness, durability, and testability over performance.

@@ -5,7 +5,9 @@
 It is library-first, requires no server, and stores all data in a single JSON file with atomic, crash-safe commits.
 
 > **See also:**  
-> [USE_CASES.md](https://github.com/oernster/AxisDB/blob/main/USE_CASES.md) — a concise overview of practical applications and patterns enabled by this multidimensional JSON storage model.
+> [USE_CASES.md](https://github.com/oernster/AxisDB/blob/main/USE_CASES.md): a concise overview of practical applications and patterns enabled by this multidimensional JSON storage model.  
+> [ARCHITECTURE.md](https://github.com/oernster/AxisDB/blob/main/ARCHITECTURE.md): the engine, the storage format and the locking model.  
+> [TECH_DEBT.md](https://github.com/oernster/AxisDB/blob/main/TECH_DEBT.md): what is still open, what is deliberately left and what only looks like debt.
 
 ---
 

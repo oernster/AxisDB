@@ -2,7 +2,7 @@
 
 **AxisDB** is a tiny embedded document database for Python, designed for simple, reliable storage of JSON documents addressed by **N-dimensional coordinate keys**.
 
-It is library-first, requires no server, and stores all data in a single JSON file with atomic, crash-safe commits.
+It is library-first, requires no server and stores all data in a single JSON file with atomic, crash-safe commits.
 
 <img width="1764" height="987" alt="AxisDB" src="https://github.com/user-attachments/assets/8c3e56ae-2a0b-4ecc-b0b9-f35780e73bef" />
 
@@ -10,6 +10,8 @@ It is library-first, requires no server, and stores all data in a single JSON fi
 > [USE_CASES.md](https://github.com/oernster/AxisDB/blob/main/USE_CASES.md): a concise overview of practical applications and patterns enabled by this multidimensional JSON storage model.  
 > [ARCHITECTURE.md](https://github.com/oernster/AxisDB/blob/main/ARCHITECTURE.md): the engine, the storage format and the locking model.  
 > [TECH_DEBT.md](https://github.com/oernster/AxisDB/blob/main/TECH_DEBT.md): what is still open, what is deliberately left and what only looks like debt.
+
+> **Commercial licences available.** AxisDB is free and open source under GPL-3.0. If those terms do not suit what you are building, such as embedding it in a closed-source product, a commercial licence can be bought from me separately. It covers my own code; third-party libraries keep their own licences. See [commercial licensing](https://ernster.dev/commercial-licensing.html).
 
 ---
 
@@ -52,7 +54,7 @@ pip install "axisdb[server]"
 
 ## Basic library usage
 
-Create a database, write a value, and commit:
+Create a database, write a value and commit:
 
 ```python
 from axisdb import AxisDB
@@ -192,3 +194,11 @@ Run tests:
 ```bash
 python -m pytest -q
 ```
+
+---
+
+## Licence
+
+GPL-3.0. See [LICENSE](LICENSE).
+
+A commercial licence for my own code is also available, separately from the open-source licence: see [commercial licensing](https://ernster.dev/commercial-licensing.html).

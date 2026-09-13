@@ -197,6 +197,14 @@ python -m pytest -q
 
 ---
 
+## Supporting the project
+
+AxisDB is free and stays free. There is no paid tier, no licence key and no feature held back behind a donation. If it has saved you time or simply been useful, a donation supports its maintenance and continued development.
+
+<a href="https://www.paypal.com/ncp/payment/W6KW78BVJX2AS"><img src="https://ernster.dev/assets/donate.png" alt="Donate to AxisDB" width="120"></a>
+
+---
+
 ## Licence
 
 GPL-3.0. See [LICENSE](LICENSE).

@@ -11,7 +11,7 @@ It is library-first, requires no server and stores all data in a single JSON fil
 > [ARCHITECTURE.md](https://github.com/oernster/AxisDB/blob/main/ARCHITECTURE.md): the engine, the storage format and the locking model.  
 > [TECH_DEBT.md](https://github.com/oernster/AxisDB/blob/main/TECH_DEBT.md): what is still open, what is deliberately left and what only looks like debt.
 
-> **Commercial licences available.** AxisDB is free and open source under GPL-3.0. If those terms do not suit what you are building, such as embedding it in a closed-source product, a commercial licence can be bought from me separately. It covers my own code; third-party libraries keep their own licences. See [commercial licensing](https://ernster.dev/commercial-licensing.html).
+> **MIT licensed.** AxisDB is free and open source under the MIT licence, so it can be imported into closed-source and commercial code with no further agreement. Releases up to and including 1.0.6 were published under GPL-3.0 and stay under it.
 
 ---
 
@@ -207,6 +207,6 @@ AxisDB is free and stays free. There is no paid tier, no licence key and no feat
 
 ## Licence
 
-GPL-3.0. See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).
 
-A commercial licence for my own code is also available, separately from the open-source licence: see [commercial licensing](https://ernster.dev/commercial-licensing.html).
+AxisDB moved from GPL-3.0 to MIT after 1.0.6, a deliberate choice for adoption. A library is only useful to the teams that are allowed to import it; a GPL library is off limits to most commercial Python codebases. Its dependencies (portalocker, plus fastapi and uvicorn behind the `server` extra) are all under permissive licences, so nothing it pulls in contradicts the change. Releases up to and including 1.0.6 remain under GPL-3.0.

@@ -195,6 +195,10 @@ Run tests:
 python -m pytest -q
 ```
 
+- [DEVELOPMENT.md](DEVELOPMENT.md): working from source, versioning and cutting a release.
+- [TESTING.md](TESTING.md): the checks, what the suite covers and leaves out; how a test is written.
+- [ARCHITECTURE.md](ARCHITECTURE.md): the storage format, durability, locking, indexing and the query system.
+
 ---
 
 ## Supporting the project

@@ -1,7 +1,7 @@
 # AxisDB: Architectural Overview
 
 This document describes the architecture of AxisDB as implemented in this repository.
-Goals prioritized: correctness, durability, and testability over performance.
+Goals prioritized: correctness, durability and testability over performance.
 
 ## 1. What this project is
 
@@ -22,7 +22,7 @@ Optional REST wrapper:
 The system is structured into:
 
 - API layer: public database handle and transaction semantics.
-- Engine layer: storage, recovery, locking, and key encoding.
+- Engine layer: storage, recovery, locking and key encoding.
 - Indexing layer: minimal indexes maintained on commit.
 - Query layer: expression tree and evaluator.
 - Server wrapper: thin FastAPI layer mapping HTTP requests to library calls.
@@ -58,7 +58,7 @@ Storage code:
 Key fields:
 
 - `format`, `format_version`
-- `meta`: includes dimensions, timestamps, and index definitions
+- `meta`: includes dimensions, timestamps and index definitions
 - `data`: mapping `encoded_key -> value`
 - `index`: materialized indexes (prefix keys and optional field indexes)
 
@@ -198,26 +198,14 @@ for each endpoint.
 
 ## 11. Testing strategy
 
-Testing emphasizes real file IO and real multiprocess behavior.
-
-Key tests:
-
-- Recovery logic:
-  [tests/test_storage_recovery.py](./tests/test_storage_recovery.py)
-- Multiprocess locking:
-  [tests/test_locking_multiprocess.py](./tests/test_locking_multiprocess.py)
-- API behavior:
-  [tests/test_api_basic.py](./tests/test_api_basic.py)
-- Slice behavior:
-  [tests/test_slice.py](./tests/test_slice.py)
-- Key encoding:
-  [tests/test_keycodec.py](./tests/test_keycodec.py)
-
-Run tests with:
-
-```
-.\.venv\Scripts\python.exe -m pytest -q
-```
+Testing emphasizes real file IO and real multiprocess behavior. What each test
+file holds, how to run the checks and what the suite leaves out are in
+[TESTING.md](TESTING.md).
 
 Source:
 https://github.com/oernster/AxisDB
+
+---
+
+See also [README.md](README.md), [TESTING.md](TESTING.md) and
+[DEVELOPMENT.md](DEVELOPMENT.md).

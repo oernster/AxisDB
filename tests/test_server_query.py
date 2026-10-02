@@ -1,0 +1,203 @@
+"""Tests for the `/list` and `/find` endpoints of the FastAPI wrapper.
+
+`prefix` and `field` are declared as bare `list[str] | None` parameters in
+`axisdb/server/app.py`, so FastAPI reads them from a JSON body rather than
+the query string the README documents. The tests that exercise prefix and
+field filtering therefore send them as a body, which is the only form the
+wrapper accepts today; the xfail tests at the end record that the documented
+query-string form is ignored.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+from fastapi import status
+from fastapi.testclient import TestClient
+
+from axisdb import AxisDB
+from axisdb.server.app import app
+
+DIMENSIONS = 2
+FIND_LIMIT = 1
+LIST_DEPTH = 1
+
+ALICE_KEY = ["u1", "k1"]
+BOB_KEY = ["u1", "k2"]
+CAROL_KEY = ["u2", "k1"]
+ALICE_DOC = {"customer_id": "c1", "amount": 10}
+BOB_DOC = {"customer_id": "c2", "amount": 20}
+CAROL_DOC = {"customer_id": "c1", "amount": 30}
+SEED = {
+    tuple(ALICE_KEY): ALICE_DOC,
+    tuple(BOB_KEY): BOB_DOC,
+    tuple(CAROL_KEY): CAROL_DOC,
+}
+U1_PREFIX = ALICE_KEY[:1]
+
+
+@pytest.fixture
+def client() -> TestClient:
+    return TestClient(app)
+
+
+@pytest.fixture
+def seeded(tmp_path: Path) -> Path:
+    db_path = tmp_path / "db.json"
+    with AxisDB.create(db_path, dimensions=DIMENSIONS) as db:
+        for key, doc in SEED.items():
+            db.set(key, doc)
+        db.commit()
+    return db_path
+
+
+def _rows(*pairs: tuple[list[str], dict[str, object]]) -> dict[str, object]:
+    return {"rows": [{"key": key, "value": doc} for key, doc in pairs]}
+
+
+# /list
+
+
+def test_list_returns_every_key(client: TestClient, seeded: Path) -> None:
+    r = client.get("/list", params={"path": str(seeded)})
+
+    assert r.status_code == status.HTTP_200_OK
+    assert r.json() == {"keys": [ALICE_KEY, BOB_KEY, CAROL_KEY]}
+
+
+def test_list_with_prefix(client: TestClient, seeded: Path) -> None:
+    r = client.request("GET", "/list", params={"path": str(seeded)}, json=U1_PREFIX)
+
+    assert r.status_code == status.HTTP_200_OK
+    assert r.json() == {"keys": [ALICE_KEY, BOB_KEY]}
+
+
+def test_list_with_depth_truncates_and_deduplicates(
+    client: TestClient, seeded: Path
+) -> None:
+    r = client.get("/list", params={"path": str(seeded), "depth": LIST_DEPTH})
+
+    assert r.status_code == status.HTTP_200_OK
+    assert r.json() == {"keys": [U1_PREFIX, CAROL_KEY[:LIST_DEPTH]]}
+
+
+def test_list_with_prefix_and_depth(client: TestClient, seeded: Path) -> None:
+    r = client.request(
+        "GET",
+        "/list",
+        params={"path": str(seeded), "depth": LIST_DEPTH},
+        json=U1_PREFIX,
+    )
+
+    assert r.json() == {"keys": [ALICE_KEY, BOB_KEY]}
+
+
+def test_list_prefix_longer_than_dimensions_is_bad_request(
+    client: TestClient, seeded: Path
+) -> None:
+    too_long = ALICE_KEY + ["extra"]
+    r = client.request("GET", "/list", params={"path": str(seeded)}, json=too_long)
+
+    assert r.status_code == status.HTTP_400_BAD_REQUEST
+    assert r.json()["detail"] == "prefix longer than number of dimensions"
+
+
+# /find
+
+
+def test_find_without_predicate_returns_every_row(
+    client: TestClient, seeded: Path
+) -> None:
+    r = client.get("/find", params={"path": str(seeded)})
+
+    assert r.status_code == status.HTTP_200_OK
+    assert r.json() == _rows(
+        (ALICE_KEY, ALICE_DOC), (BOB_KEY, BOB_DOC), (CAROL_KEY, CAROL_DOC)
+    )
+
+
+def test_find_with_field_predicate(client: TestClient, seeded: Path) -> None:
+    r = client.request(
+        "GET",
+        "/find",
+        params={"path": str(seeded), "value": "c1"},
+        json={"field": ["customer_id"]},
+    )
+
+    assert r.status_code == status.HTTP_200_OK
+    assert r.json() == _rows((ALICE_KEY, ALICE_DOC), (CAROL_KEY, CAROL_DOC))
+
+
+def test_find_with_field_predicate_and_other_operator(
+    client: TestClient, seeded: Path
+) -> None:
+    r = client.request(
+        "GET",
+        "/find",
+        params={"path": str(seeded), "op": "!=", "value": "c1"},
+        json={"field": ["customer_id"]},
+    )
+
+    assert r.json() == _rows((BOB_KEY, BOB_DOC))
+
+
+def test_find_with_prefix(client: TestClient, seeded: Path) -> None:
+    r = client.request(
+        "GET", "/find", params={"path": str(seeded)}, json={"prefix": U1_PREFIX}
+    )
+
+    assert r.json() == _rows((ALICE_KEY, ALICE_DOC), (BOB_KEY, BOB_DOC))
+
+
+def test_find_with_limit(client: TestClient, seeded: Path) -> None:
+    r = client.get("/find", params={"path": str(seeded), "limit": FIND_LIMIT})
+
+    assert r.status_code == status.HTTP_200_OK
+    assert r.json() == _rows((ALICE_KEY, ALICE_DOC))
+
+
+def test_find_with_non_positive_limit_is_bad_request(
+    client: TestClient, seeded: Path
+) -> None:
+    r = client.get("/find", params={"path": str(seeded), "limit": 0})
+
+    assert r.status_code == status.HTTP_400_BAD_REQUEST
+    assert r.json()["detail"] == "limit must be a positive integer"
+
+
+def test_find_on_missing_file_is_server_error(
+    client: TestClient, tmp_path: Path
+) -> None:
+    r = client.get("/find", params={"path": str(tmp_path / "missing.json")})
+
+    assert r.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+    assert "does not exist" in r.json()["detail"]
+
+
+# The documented query-string form
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="prefix is declared without Query(...), so FastAPI reads it from the "
+    "body and ignores the query string the README documents",
+)
+def test_list_reads_prefix_from_query_string(client: TestClient, seeded: Path) -> None:
+    r = client.get("/list", params={"path": str(seeded), "prefix": U1_PREFIX})
+
+    assert r.json() == {"keys": [ALICE_KEY, BOB_KEY]}
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="field is declared without Query(...), so FastAPI reads it from the "
+    "body and ignores the query string the README documents",
+)
+def test_find_reads_field_from_query_string(client: TestClient, seeded: Path) -> None:
+    r = client.get(
+        "/find",
+        params={"path": str(seeded), "field": ["customer_id"], "value": "c1"},
+    )
+
+    assert r.json() == _rows((ALICE_KEY, ALICE_DOC), (CAROL_KEY, CAROL_DOC))

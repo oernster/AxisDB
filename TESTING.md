@@ -20,10 +20,11 @@ code of each. ruff is configured in `pyproject.toml` with a wider rule set than
 its defaults (pycodestyle, pyflakes, import order, pyupgrade, bugbear and
 simplify).
 
-**A full run takes a few seconds.** Measured on 2026-10-02: 25 tests passed in
-3 seconds on Windows.
+**A full run takes a few seconds.** Measured on 2026-10-03: 60 tests passed
+and 4 expected failures (xfail) were recorded in under 4 seconds on Windows.
 
-**Read the exit code.** `0` means every test passed. There is no coverage gate
+**Read the exit code.** `0` means every test passed; an expected failure that
+fails as expected does not change it. There is no coverage gate
 here, so the summary line is the result; `$LASTEXITCODE` is still the thing to
 trust in a script.
 
@@ -36,14 +37,20 @@ one file.
 
 - **No coverage measurement.** pytest-cov is neither installed nor configured,
   so there is no floor and no figure.
-- **The FastAPI wrapper is not tested.** Nothing under `tests/` exercises
-  `axisdb/server`; the wrapper is a thin translation onto the library, whose
-  behaviour the suite does cover. The translation itself is checked by
-  nothing.
+- **The FastAPI wrapper is tested in process.** `TestClient` drives every
+  endpoint against a real file; contention there comes from a writer held
+  open in the test itself rather than from a second process.
+- **Known wrapper defects are pinned as strict xfails.** Four tests record
+  behaviour that is wrong today: `/init` leaves its writer open until
+  garbage collection; a refused `/init` overwrite has already replaced the
+  file; `/list` and `/find` ignore `prefix` and `field` in the query string
+  the README documents (they read them from a JSON body). Because the marks
+  are strict, a fix makes the run fail until its xfail is removed. Until then
+  the prefix and field tests send those values as a body.
 
 ## Where the tests live
 
-All six files sit flat in `tests/`:
+All eight files sit flat in `tests/`:
 
 | File | What it holds |
 |---|---|
@@ -53,6 +60,8 @@ All six files sit flat in `tests/`:
 | `test_find_indexed.py` | `find` using a field index for a simple equality, falling back when none matches |
 | `test_slice.py` | `slice` with exact matches, wildcards and membership selectors |
 | `test_keycodec.py` | the encoding of N-dimensional keys, pure |
+| `test_server.py` | the FastAPI wrapper's `/init`, `/info` and `/item` endpoints over HTTP, including the 400, 404, 423 and 500 responses; the error translator called directly |
+| `test_server_query.py` | the wrapper's `/list` and `/find` endpoints: prefix, depth, field predicates and limit |
 
 ## Writing a test
 

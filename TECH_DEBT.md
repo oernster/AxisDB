@@ -8,7 +8,7 @@ The framing here is different from an application's. AxisDB is the only publishe
 
 ## 1. A published library with no coverage gate
 
-There is no `--cov-fail-under`, no `.coveragerc`, no `[tool.pytest.ini_options]` and no coverage configuration of any kind. `pytest` runs six test files against 1,655 lines and reports nothing about what it did not reach.
+There is no `--cov-fail-under`, no `.coveragerc`, no `[tool.pytest.ini_options]` and no coverage configuration of any kind. `pytest` runs eight test files against 1,655 lines and reports nothing about what it did not reach.
 
 Every application in this portfolio carries a 100% gate, several of them scoped honestly to the surface that matters. The one artefact that other people install has none. That is the wrong way round: a defect in a desktop clock inconveniences its author; a defect in a storage library silently corrupts someone else's data.
 
@@ -21,7 +21,7 @@ addopts = "-q --cov=axisdb --cov-branch --cov-report=term-missing --cov-fail-und
 
 and omit `axisdb/server/*` if the FastAPI wrapper is not worth gating (it is an optional extra, so that is defensible). The engine, the key codec, the indexes and the locking are the product and should be at 100%.
 
-The six existing tests are well chosen (`test_keycodec`, `test_slice`, `test_find_indexed`, `test_storage_recovery`, `test_locking_multiprocess`, `test_api_basic`) and cover the hard parts. This item is about knowing what they miss, not about doubting them.
+The eight existing test files are well chosen (`test_keycodec`, `test_slice`, `test_find_indexed`, `test_storage_recovery`, `test_locking_multiprocess`, `test_api_basic`, `test_server`, `test_server_query`) and cover the hard parts. This item is about knowing what they miss, not about doubting them.
 
 ## 2. The library does not expose its own version
 

@@ -106,11 +106,6 @@ def test_init_overwrite_replaces_database(client: TestClient, seeded: Path) -> N
     assert reopened.list() == []
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="/init never closes the writer AxisDB.create opens; the lock file "
-    "handle is freed only when CPython drops the last reference",
-)
 def test_init_closes_its_writer_handle(client: TestClient, db_path: Path) -> None:
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
@@ -119,11 +114,6 @@ def test_init_closes_its_writer_handle(client: TestClient, db_path: Path) -> Non
     assert not [w for w in caught if issubclass(w.category, ResourceWarning)]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AxisDB.create writes the new file before it takes the writer lock, "
-    "so a refused overwrite has already replaced the data",
-)
 def test_refused_overwrite_leaves_data_intact(client: TestClient, seeded: Path) -> None:
     with AxisDB.open(seeded, mode="rw"):
         r = client.post(

@@ -8,7 +8,7 @@ The framing here is different from an application's. AxisDB is the only publishe
 
 ## 1. A published library with no coverage gate
 
-There is no `--cov-fail-under`, no `.coveragerc`, no `[tool.pytest.ini_options]` and no coverage configuration of any kind. `pytest` runs eight test files against 1,655 lines and reports nothing about what it did not reach.
+There is no `--cov-fail-under`, no `.coveragerc`, no `[tool.pytest.ini_options]` and no coverage configuration of any kind. `pytest` runs nine test files against 1,655 lines and reports nothing about what it did not reach.
 
 Every application in this portfolio carries a 100% gate, several of them scoped honestly to the surface that matters. The one artefact that other people install has none. That is the wrong way round: a defect in a desktop clock inconveniences its author; a defect in a storage library silently corrupts someone else's data.
 
@@ -21,7 +21,7 @@ addopts = "-q --cov=axisdb --cov-branch --cov-report=term-missing --cov-fail-und
 
 and omit `axisdb/server/*` if the FastAPI wrapper is not worth gating (it is an optional extra, so that is defensible). The engine, the key codec, the indexes and the locking are the product and should be at 100%.
 
-The eight existing test files are well chosen (`test_keycodec`, `test_slice`, `test_find_indexed`, `test_storage_recovery`, `test_locking_multiprocess`, `test_api_basic`, `test_server`, `test_server_query`) and cover the hard parts. This item is about knowing what they miss, not about doubting them.
+The nine existing test files are well chosen (`test_keycodec`, `test_slice`, `test_find_indexed`, `test_storage_recovery`, `test_locking_multiprocess`, `test_create_locking`, `test_api_basic`, `test_server`, `test_server_query`) and cover the hard parts. This item is about knowing what they miss, not about doubting them.
 
 ## 2. The library does not expose its own version
 
@@ -33,11 +33,11 @@ The minimal-public-API rule is right and `__all__` holding one name is right. `_
 
 The commit history shows the cost of the current arrangement directly: four of the last eight commits are "Bump version". That is a manual edit to `pyproject.toml` and nothing else, which is exactly the step a `VERSION` file removes.
 
-## 3. `axisdb/api.py` is 509 lines
+## 3. `axisdb/api.py` is 517 lines
 
 The single largest module in the repository and the only one over 400. It is the public facade, so it legitimately carries every entry point (`list`, `slice`, `find`, index management, session lifecycle, commit); a facade is expected to be wide.
 
-Wide is not the same as long. 509 lines means the facade is also implementing rather than delegating; it is also the file a consumer reads to understand the library. Splitting the index-management and the query surfaces into sibling modules that `api.py` delegates to would take it under the cap and make the facade readable in one sitting.
+Wide is not the same as long. 517 lines means the facade is also implementing rather than delegating; it is also the file a consumer reads to understand the library. Splitting the index-management and the query surfaces into sibling modules that `api.py` delegates to would take it under the cap and make the facade readable in one sitting.
 
 There is also no structural test asserting the cap, so nothing reports this. A single size assertion beside the existing tests would cost almost nothing at this scale.
 

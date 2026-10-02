@@ -2,7 +2,7 @@
 
 This module intentionally keeps the public surface small and typed.
 Engine details live in [`axisdb.engine.storage`](axisdb/engine/storage.py:1),
-[`axisdb.engine.locking`](axisdb/engine/locking.py:1), and other `axisdb.*` modules.
+[`axisdb.engine.locking`](axisdb/engine/locking.py:1) and other `axisdb.*` modules.
 """
 
 from __future__ import annotations
@@ -15,6 +15,7 @@ from typing import Any, Literal
 from axisdb.engine.keycodec import decode_key, encode_key
 from axisdb.engine.locking import FileLock, FileLockSpec, LockMode, LockPaths
 from axisdb.engine.storage import (
+    DBPayload,
     FieldIndexDef,
     StoragePaths,
     default_payload,
@@ -90,10 +91,10 @@ class AxisDB:
         if p.exists() and not overwrite:
             raise ValidationError(f"Database already exists: {p}")
 
-        storage_paths = StoragePaths(db_path=p)
         payload = default_payload(dimensions=dimensions)
-        write_atomic(storage_paths, payload)
-        return cls.open(p, mode="rw", lock=lock)
+        db = cls(path=p, mode="rw", lock=lock)
+        db._initialize(initial_payload=payload)
+        return db
 
     @property
     def dimensions(self) -> int:
@@ -144,7 +145,9 @@ class AxisDB:
     # Initialization
     # ---------------------------------------------------------------------
 
-    def _initialize(self) -> None:
+    def _initialize(self, initial_payload: DBPayload | None = None) -> None:
+        # `create` passes `initial_payload`; it is written only once the writer
+        # lock is held, so a refused create leaves an existing file untouched.
         self._lock_paths = LockPaths(self.path)
         self._storage_paths = StoragePaths(db_path=self.path)
 
@@ -163,11 +166,16 @@ class AxisDB:
         # Recovery should be performed with exclusive rw lock to avoid races.
         if self.lock:
             with FileLock(FileLockSpec(self._lock_paths.rw_lock, LockMode.EXCLUSIVE)):
-                recover_if_needed(self._storage_paths)
+                self._write_initial_then_recover(initial_payload)
         else:
-            recover_if_needed(self._storage_paths)
+            self._write_initial_then_recover(initial_payload)
 
         self._reload_base_from_disk()
+
+    def _write_initial_then_recover(self, initial_payload: DBPayload | None) -> None:
+        if initial_payload is not None:
+            write_atomic(self._storage_paths, initial_payload)
+        recover_if_needed(self._storage_paths)
 
     def _reload_base_from_disk(self) -> None:
         if not self.path.exists():
@@ -361,7 +369,7 @@ class AxisDB:
                     return False
                 continue
             raise ValidationError(
-                "Invalid dim_slices selector (expected None, str, list/tuple/set, or callable)"
+                "Invalid dim_slices selector (expected None, str, list/tuple/set or callable)"
             )
         return True
 

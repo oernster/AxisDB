@@ -1,11 +1,7 @@
 """Tests for the `/list` and `/find` endpoints of the FastAPI wrapper.
 
-`prefix` and `field` are declared as bare `list[str] | None` parameters in
-`axisdb/server/app.py`, so FastAPI reads them from a JSON body rather than
-the query string the README documents. The tests that exercise prefix and
-field filtering therefore send them as a body, which is the only form the
-wrapper accepts today; the xfail tests at the end record that the documented
-query-string form is ignored.
+`prefix` and `field` are repeated query parameters, as the README documents
+(`?prefix=u1&field=customer_id`); every test sends them in the query string.
 """
 
 from __future__ import annotations
@@ -66,8 +62,8 @@ def test_list_returns_every_key(client: TestClient, seeded: Path) -> None:
     assert r.json() == {"keys": [ALICE_KEY, BOB_KEY, CAROL_KEY]}
 
 
-def test_list_with_prefix(client: TestClient, seeded: Path) -> None:
-    r = client.request("GET", "/list", params={"path": str(seeded)}, json=U1_PREFIX)
+def test_list_reads_prefix_from_query_string(client: TestClient, seeded: Path) -> None:
+    r = client.get("/list", params={"path": str(seeded), "prefix": U1_PREFIX})
 
     assert r.status_code == status.HTTP_200_OK
     assert r.json() == {"keys": [ALICE_KEY, BOB_KEY]}
@@ -83,11 +79,9 @@ def test_list_with_depth_truncates_and_deduplicates(
 
 
 def test_list_with_prefix_and_depth(client: TestClient, seeded: Path) -> None:
-    r = client.request(
-        "GET",
+    r = client.get(
         "/list",
-        params={"path": str(seeded), "depth": LIST_DEPTH},
-        json=U1_PREFIX,
+        params={"path": str(seeded), "prefix": U1_PREFIX, "depth": LIST_DEPTH},
     )
 
     assert r.json() == {"keys": [ALICE_KEY, BOB_KEY]}
@@ -97,7 +91,7 @@ def test_list_prefix_longer_than_dimensions_is_bad_request(
     client: TestClient, seeded: Path
 ) -> None:
     too_long = ALICE_KEY + ["extra"]
-    r = client.request("GET", "/list", params={"path": str(seeded)}, json=too_long)
+    r = client.get("/list", params={"path": str(seeded), "prefix": too_long})
 
     assert r.status_code == status.HTTP_400_BAD_REQUEST
     assert r.json()["detail"] == "prefix longer than number of dimensions"
@@ -117,12 +111,10 @@ def test_find_without_predicate_returns_every_row(
     )
 
 
-def test_find_with_field_predicate(client: TestClient, seeded: Path) -> None:
-    r = client.request(
-        "GET",
+def test_find_reads_field_from_query_string(client: TestClient, seeded: Path) -> None:
+    r = client.get(
         "/find",
-        params={"path": str(seeded), "value": "c1"},
-        json={"field": ["customer_id"]},
+        params={"path": str(seeded), "field": ["customer_id"], "value": "c1"},
     )
 
     assert r.status_code == status.HTTP_200_OK
@@ -132,20 +124,21 @@ def test_find_with_field_predicate(client: TestClient, seeded: Path) -> None:
 def test_find_with_field_predicate_and_other_operator(
     client: TestClient, seeded: Path
 ) -> None:
-    r = client.request(
-        "GET",
+    r = client.get(
         "/find",
-        params={"path": str(seeded), "op": "!=", "value": "c1"},
-        json={"field": ["customer_id"]},
+        params={
+            "path": str(seeded),
+            "field": ["customer_id"],
+            "op": "!=",
+            "value": "c1",
+        },
     )
 
     assert r.json() == _rows((BOB_KEY, BOB_DOC))
 
 
 def test_find_with_prefix(client: TestClient, seeded: Path) -> None:
-    r = client.request(
-        "GET", "/find", params={"path": str(seeded)}, json={"prefix": U1_PREFIX}
-    )
+    r = client.get("/find", params={"path": str(seeded), "prefix": U1_PREFIX})
 
     assert r.json() == _rows((ALICE_KEY, ALICE_DOC), (BOB_KEY, BOB_DOC))
 
@@ -173,31 +166,3 @@ def test_find_on_missing_file_is_server_error(
 
     assert r.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
     assert "does not exist" in r.json()["detail"]
-
-
-# The documented query-string form
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="prefix is declared without Query(...), so FastAPI reads it from the "
-    "body and ignores the query string the README documents",
-)
-def test_list_reads_prefix_from_query_string(client: TestClient, seeded: Path) -> None:
-    r = client.get("/list", params={"path": str(seeded), "prefix": U1_PREFIX})
-
-    assert r.json() == {"keys": [ALICE_KEY, BOB_KEY]}
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="field is declared without Query(...), so FastAPI reads it from the "
-    "body and ignores the query string the README documents",
-)
-def test_find_reads_field_from_query_string(client: TestClient, seeded: Path) -> None:
-    r = client.get(
-        "/find",
-        params={"path": str(seeded), "field": ["customer_id"], "value": "c1"},
-    )
-
-    assert r.json() == _rows((ALICE_KEY, ALICE_DOC), (CAROL_KEY, CAROL_DOC))

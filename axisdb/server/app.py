@@ -3,6 +3,9 @@
 This is intentionally a thin layer:
 - It does not implement database logic.
 - It converts HTTP requests into calls to [`AxisDB`](axisdb/api.py:1).
+
+Every handle is opened in a `with` block, so `AxisDB.__exit__` releases it
+(and any writer lock) as soon as the request is done.
 """
 
 from __future__ import annotations
@@ -10,7 +13,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from fastapi import Body, FastAPI, HTTPException, Query
+from fastapi import Body, FastAPI, HTTPException, Query, status
 
 from axisdb import AxisDB
 from axisdb.errors import (
@@ -27,21 +30,25 @@ app = FastAPI(title="AxisDB")
 
 def _to_http(exc: Exception) -> HTTPException:
     if isinstance(exc, (ValidationError, ReadOnlyError)):
-        return HTTPException(status_code=400, detail=str(exc))
+        return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     if isinstance(exc, KeyError):
-        return HTTPException(status_code=404, detail="Not found")
+        return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
     if isinstance(exc, LockError):
-        return HTTPException(status_code=423, detail=str(exc))
+        return HTTPException(status_code=status.HTTP_423_LOCKED, detail=str(exc))
     if isinstance(exc, StorageCorruptionError):
-        return HTTPException(status_code=500, detail=str(exc))
-    return HTTPException(status_code=500, detail=str(exc))
+        return HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
+    return HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+    )
 
 
 @app.get("/info")
 def info(path: str) -> dict[str, Any]:
     try:
-        db = AxisDB.open(path, mode="r")
-        return {"path": str(Path(path)), "dimensions": db.dimensions, "mode": "r"}
+        with AxisDB.open(path, mode="r") as db:
+            return {"path": str(Path(path)), "dimensions": db.dimensions, "mode": "r"}
     except Exception as exc:  # noqa: BLE001
         raise _to_http(exc) from exc
 
@@ -49,12 +56,12 @@ def info(path: str) -> dict[str, Any]:
 @app.post("/init")
 def init_db(path: str, dimensions: int, overwrite: bool = False) -> InitResponse:
     try:
-        db = AxisDB.create(path, dimensions=dimensions, overwrite=overwrite)
-        return InitResponse(
-            path=str(Path(path)),
-            dimensions=db.dimensions,
-            created=True,
-        )
+        with AxisDB.create(path, dimensions=dimensions, overwrite=overwrite) as db:
+            return InitResponse(
+                path=str(Path(path)),
+                dimensions=db.dimensions,
+                created=True,
+            )
     except Exception as exc:  # noqa: BLE001
         raise _to_http(exc) from exc
 
@@ -73,8 +80,8 @@ def set_item(path: str, body: ItemBody = Body(...)) -> dict[str, Any]:
 @app.get("/item")
 def get_item(path: str, coords: list[str] = Query(...)) -> dict[str, Any]:
     try:
-        db = AxisDB.open(path, mode="r")
-        value = db.get(tuple(coords))
+        with AxisDB.open(path, mode="r") as db:
+            value = db.get(tuple(coords))
         return {"coords": coords, "value": value}
     except Exception as exc:  # noqa: BLE001
         raise _to_http(exc) from exc
@@ -93,11 +100,11 @@ def delete_item(path: str, body: DeleteBody = Body(...)) -> dict[str, Any]:
 
 @app.get("/list")
 def list_items(
-    path: str, prefix: list[str] | None = None, depth: int | None = None
+    path: str, prefix: list[str] | None = Query(None), depth: int | None = None
 ) -> dict[str, Any]:
     try:
-        db = AxisDB.open(path, mode="r")
-        keys = db.list(prefix=tuple(prefix or ()), depth=depth)
+        with AxisDB.open(path, mode="r") as db:
+            keys = db.list(prefix=tuple(prefix or ()), depth=depth)
         return {"keys": [list(k) for k in keys]}
     except Exception as exc:  # noqa: BLE001
         raise _to_http(exc) from exc
@@ -106,8 +113,8 @@ def list_items(
 @app.get("/find")
 def find_items(
     path: str,
-    prefix: list[str] | None = None,
-    field: list[str] | None = None,
+    prefix: list[str] | None = Query(None),
+    field: list[str] | None = Query(None),
     op: str = "==",
     value: Any = None,
     limit: int | None = None,
@@ -118,11 +125,11 @@ def find_items(
     """
 
     try:
-        db = AxisDB.open(path, mode="r")
-        expr = None
-        if field is not None:
-            expr = Field(tuple(field), op, value)  # type: ignore[arg-type]
-        rows = db.find(prefix=tuple(prefix or ()), where=expr, limit=limit)
+        with AxisDB.open(path, mode="r") as db:
+            expr = None
+            if field is not None:
+                expr = Field(tuple(field), op, value)  # type: ignore[arg-type]
+            rows = db.find(prefix=tuple(prefix or ()), where=expr, limit=limit)
         return {"rows": [{"key": list(k), "value": v} for k, v in rows]}
     except Exception as exc:  # noqa: BLE001
         raise _to_http(exc) from exc

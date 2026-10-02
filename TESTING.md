@@ -20,11 +20,10 @@ code of each. ruff is configured in `pyproject.toml` with a wider rule set than
 its defaults (pycodestyle, pyflakes, import order, pyupgrade, bugbear and
 simplify).
 
-**A full run takes a few seconds.** Measured on 2026-10-03: 60 tests passed
-and 4 expected failures (xfail) were recorded in under 4 seconds on Windows.
+**A full run takes a few seconds.** Measured on 2026-10-03: 64 tests passed
+in under 4 seconds on Windows, with no expected failures (xfail) left.
 
-**Read the exit code.** `0` means every test passed; an expected failure that
-fails as expected does not change it. There is no coverage gate
+**Read the exit code.** `0` means every test passed. There is no coverage gate
 here, so the summary line is the result; `$LASTEXITCODE` is still the thing to
 trust in a script.
 
@@ -32,7 +31,7 @@ trust in a script.
 
 Testing emphasises real file IO and real multiprocess behaviour rather than
 stand-ins: every test that touches storage writes a real database file into
-pytest's `tmp_path`; the locking test runs real separate processes against
+pytest's `tmp_path`; the locking tests run real separate processes against
 one file.
 
 - **No coverage measurement.** pytest-cov is neither installed nor configured,
@@ -40,28 +39,22 @@ one file.
 - **The FastAPI wrapper is tested in process.** `TestClient` drives every
   endpoint against a real file; contention there comes from a writer held
   open in the test itself rather than from a second process.
-- **Known wrapper defects are pinned as strict xfails.** Four tests record
-  behaviour that is wrong today: `/init` leaves its writer open until
-  garbage collection; a refused `/init` overwrite has already replaced the
-  file; `/list` and `/find` ignore `prefix` and `field` in the query string
-  the README documents (they read them from a JSON body). Because the marks
-  are strict, a fix makes the run fail until its xfail is removed. Until then
-  the prefix and field tests send those values as a body.
 
 ## Where the tests live
 
-All eight files sit flat in `tests/`:
+All nine files sit flat in `tests/`:
 
 | File | What it holds |
 |---|---|
 | `test_storage_recovery.py` | recovery on open: which of the main file and a commit's temporary file is kept when they disagree; a refusal when neither is valid |
 | `test_locking_multiprocess.py` | across real processes, two writers cannot open together while a reader can open beside a writer |
+| `test_create_locking.py` | a `create(..., overwrite=True)` refused because another writer holds the file, in the same process and across real processes, leaves the old data intact |
 | `test_api_basic.py` | the public operations: create, set, get, commit, rollback, read-only refusal, input validation, `list` and `find` |
 | `test_find_indexed.py` | `find` using a field index for a simple equality, falling back when none matches |
 | `test_slice.py` | `slice` with exact matches, wildcards and membership selectors |
 | `test_keycodec.py` | the encoding of N-dimensional keys, pure |
 | `test_server.py` | the FastAPI wrapper's `/init`, `/info` and `/item` endpoints over HTTP, including the 400, 404, 423 and 500 responses; the error translator called directly |
-| `test_server_query.py` | the wrapper's `/list` and `/find` endpoints: prefix, depth, field predicates and limit |
+| `test_server_query.py` | the wrapper's `/list` and `/find` endpoints: prefix, depth, field predicates and limit, all sent in the query string |
 
 ## Writing a test
 

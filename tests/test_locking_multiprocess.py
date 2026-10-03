@@ -44,26 +44,60 @@ def test_two_writers_cannot_open_concurrently(tmp_path: Path) -> None:
     assert q.get(timeout=2) is False
 
 
+KEY = ("a",)
+VALUE = 123
+DIMENSIONS = 1
+CHILD_READY_TIMEOUT_S = 10.0
+CHILD_JOIN_TIMEOUT_S = 10.0
+QUEUE_TIMEOUT_S = 5.0
+
+
 def _reader_get(db_path: str, q: mp.Queue) -> None:
     db = AxisDB.open(db_path, mode="r")
-    q.put(db.get(("a",)))
+    q.put(db.get(KEY))
+
+
+def _writer_hold_until_released(
+    db_path: str, q: mp.Queue, ready, release  # noqa: ANN001
+) -> None:
+    # Report whether the writer session really opened, then hold it.
+    try:
+        with AxisDB.open(db_path, mode="rw"):
+            q.put(True)
+            ready.set()
+            release.wait(CHILD_JOIN_TIMEOUT_S)
+    except LockError:
+        q.put(False)
+        ready.set()
 
 
 def test_reader_can_open_while_writer_session_exists(tmp_path: Path) -> None:
     db_path = tmp_path / "db.json"
-    db = AxisDB.create(db_path, dimensions=1)
-    db.set(("a",), 123)
-    db.commit()
+    # An open parent handle would make the writer child get LockError.
+    with AxisDB.create(db_path, dimensions=DIMENSIONS) as db:
+        db.set(KEY, VALUE)
+        db.commit()
 
-    writer = mp.Process(target=_writer_hold_open, args=(str(db_path), 1.0))
-    q: mp.Queue = mp.Queue()
-    reader = mp.Process(target=_reader_get, args=(str(db_path), q))
-
+    writer_q: mp.Queue = mp.Queue()
+    reader_q: mp.Queue = mp.Queue()
+    ready = mp.Event()
+    release = mp.Event()
+    writer = mp.Process(
+        target=_writer_hold_until_released,
+        args=(str(db_path), writer_q, ready, release),
+    )
     writer.start()
-    time.sleep(0.2)
-    reader.start()
+    try:
+        assert ready.wait(CHILD_READY_TIMEOUT_S)
+        assert writer_q.get(timeout=QUEUE_TIMEOUT_S) is True
 
-    reader.join(timeout=5)
-    writer.join(timeout=5)
+        # The writer still holds its session while the reader runs.
+        reader = mp.Process(target=_reader_get, args=(str(db_path), reader_q))
+        reader.start()
+        reader.join(CHILD_JOIN_TIMEOUT_S)
+        assert reader_q.get(timeout=QUEUE_TIMEOUT_S) == VALUE
+    finally:
+        release.set()
+        writer.join(CHILD_JOIN_TIMEOUT_S)
 
-    assert q.get(timeout=2) == 123
+    assert writer.exitcode == 0

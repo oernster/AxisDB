@@ -153,6 +153,8 @@ The server is intentionally a minimal translation layer over the library:
 - `GET /list?path=...&prefix=...&depth=...`
 - `GET /find?path=...&prefix=...&field=...&op===&value=...&limit=...`
 
+`/find` reads `value` as JSON when it parses, so `value=10` matches the number 10, `value=true` a boolean and `value=null` a null; anything that is not valid JSON, such as `value=c1`, is matched as a plain string. To match a string that looks like a number or a keyword, quote it: `value="10"` matches the string `"10"`.
+
 The wrapper does not bypass durability or locking: it opens the database in `mode="r"` or `mode="rw"` as needed and uses the same commit semantics.
 
 ---

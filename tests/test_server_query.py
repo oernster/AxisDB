@@ -159,6 +159,55 @@ def test_find_with_non_positive_limit_is_bad_request(
     assert r.json()["detail"] == "limit must be a positive integer"
 
 
+# /find value decoding: JSON when it parses, the raw string otherwise.
+
+TYPED_FIELD = "v"
+TYPED_SEED = {
+    "int": 10,
+    "number_string": "10",
+    "float": 10.5,
+    "true": True,
+    "false": False,
+    "null": None,
+    "word": "c1",
+}
+
+
+@pytest.fixture
+def typed(tmp_path: Path) -> Path:
+    db_path = tmp_path / "typed.json"
+    with AxisDB.create(db_path, dimensions=DIMENSIONS) as db:
+        for name, literal in TYPED_SEED.items():
+            db.set(("t", name), {TYPED_FIELD: literal})
+        db.commit()
+    return db_path
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected_name"),
+    [
+        ("10", "int"),
+        ('"10"', "number_string"),
+        ("10.5", "float"),
+        ("true", "true"),
+        ("false", "false"),
+        ("null", "null"),
+        ("c1", "word"),
+    ],
+)
+def test_find_decodes_value_as_json_or_keeps_the_string(
+    client: TestClient, typed: Path, raw: str, expected_name: str
+) -> None:
+    r = client.get(
+        "/find",
+        params={"path": str(typed), "field": [TYPED_FIELD], "value": raw},
+    )
+
+    assert r.status_code == status.HTTP_200_OK
+    expected_doc = {TYPED_FIELD: TYPED_SEED[expected_name]}
+    assert r.json() == _rows((["t", expected_name], expected_doc))
+
+
 def test_find_on_missing_file_is_server_error(
     client: TestClient, tmp_path: Path
 ) -> None:

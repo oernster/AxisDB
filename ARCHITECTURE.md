@@ -106,7 +106,9 @@ Integration points:
 
 - Writer lock acquired in
   [AxisDB._initialize()](./axisdb/api.py#L1)
-  when opened with `mode="rw"`.
+  when opened with `mode="rw"`. If anything after it fails (recovery, a corrupt
+  or missing file, the initial write of `create`), the writer lock is released
+  before the error is raised.
 - Commit acquires an exclusive rw lock in
   [AxisDB.commit()](./axisdb/api.py#L1).
 - Read-only operations load from disk and use shared rw locking during file read.

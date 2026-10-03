@@ -10,6 +10,7 @@ Every handle is opened in a `with` block, so `AxisDB.__exit__` releases it
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -42,6 +43,26 @@ def _to_http(exc: Exception) -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
     )
+
+
+def _reject_non_standard_constant(name: str) -> Any:
+    raise ValueError(f"not a standard JSON value: {name}")
+
+
+def _decode_query_value(raw: str | None) -> Any:
+    """Read a `/find` value as JSON when it parses; otherwise keep the string.
+
+    `10` becomes an int, `true` a bool, `null` None and `"10"` the string
+    `10`; a plain word such as `c1` stays a string. `NaN` and `Infinity` are
+    not standard JSON, so they stay strings too.
+    """
+
+    if raw is None:
+        return None
+    try:
+        return json.loads(raw, parse_constant=_reject_non_standard_constant)
+    except ValueError:
+        return raw
 
 
 @app.get("/info")
@@ -116,19 +137,21 @@ def find_items(
     prefix: list[str] | None = Query(None),
     field: list[str] | None = Query(None),
     op: str = "==",
-    value: Any = None,
+    value: str | None = None,
     limit: int | None = None,
 ) -> dict[str, Any]:
     """Minimal query endpoint.
 
-    MVP: supports a single field predicate.
+    MVP: supports a single field predicate. `value` is decoded by
+    `_decode_query_value`, so it can match a number, bool or null field.
     """
 
     try:
         with AxisDB.open(path, mode="r") as db:
             expr = None
             if field is not None:
-                expr = Field(tuple(field), op, value)  # type: ignore[arg-type]
+                literal = _decode_query_value(value)
+                expr = Field(tuple(field), op, literal)  # type: ignore[arg-type]
             rows = db.find(prefix=tuple(prefix or ()), where=expr, limit=limit)
         return {"rows": [{"key": list(k), "value": v} for k, v in rows]}
     except Exception as exc:  # noqa: BLE001

@@ -163,14 +163,22 @@ class AxisDB:
             )
             self._writer_lock.__enter__()
 
-        # Recovery should be performed with exclusive rw lock to avoid races.
-        if self.lock:
-            with FileLock(FileLockSpec(self._lock_paths.rw_lock, LockMode.EXCLUSIVE)):
+        try:
+            # Recovery should be performed with exclusive rw lock to avoid races.
+            if self.lock:
+                rw_spec = FileLockSpec(self._lock_paths.rw_lock, LockMode.EXCLUSIVE)
+                with FileLock(rw_spec):
+                    self._write_initial_then_recover(initial_payload)
+            else:
                 self._write_initial_then_recover(initial_payload)
-        else:
-            self._write_initial_then_recover(initial_payload)
 
-        self._reload_base_from_disk()
+            self._reload_base_from_disk()
+        except BaseException:
+            # Release now, not when the half-built handle is garbage collected.
+            if self._writer_lock is not None:
+                self._writer_lock.__exit__(None, None, None)
+                self._writer_lock = None
+            raise
 
     def _write_initial_then_recover(self, initial_payload: DBPayload | None) -> None:
         if initial_payload is not None:

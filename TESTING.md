@@ -20,8 +20,8 @@ code of each. ruff is configured in `pyproject.toml` with a wider rule set than
 its defaults (pycodestyle, pyflakes, import order, pyupgrade, bugbear and
 simplify).
 
-**A full run takes a few seconds.** Measured on 2026-10-03: 64 tests passed
-in under 4 seconds on Windows, with no expected failures (xfail) left.
+**A full run takes a few seconds.** Measured on 2026-10-03: 73 tests passed
+in about 4 seconds on Windows, with no expected failures (xfail) left.
 
 **Read the exit code.** `0` means every test passed. There is no coverage gate
 here, so the summary line is the result; `$LASTEXITCODE` is still the thing to
@@ -42,19 +42,20 @@ one file.
 
 ## Where the tests live
 
-All nine files sit flat in `tests/`:
+All ten files sit flat in `tests/`:
 
 | File | What it holds |
 |---|---|
 | `test_storage_recovery.py` | recovery on open: which of the main file and a commit's temporary file is kept when they disagree; a refusal when neither is valid |
-| `test_locking_multiprocess.py` | across real processes, two writers cannot open together while a reader can open beside a writer |
+| `test_locking_multiprocess.py` | across real processes, two writers cannot open together while a reader can open beside a writer that is confirmed to hold its session |
 | `test_create_locking.py` | a `create(..., overwrite=True)` refused because another writer holds the file, in the same process and across real processes, leaves the old data intact |
+| `test_failed_open_lock.py` | a writer open that fails on a corrupt or missing file releases the writer lock before it raises, so a second open reports the real cause |
 | `test_api_basic.py` | the public operations: create, set, get, commit, rollback, read-only refusal, input validation, `list` and `find` |
 | `test_find_indexed.py` | `find` using a field index for a simple equality, falling back when none matches |
 | `test_slice.py` | `slice` with exact matches, wildcards and membership selectors |
 | `test_keycodec.py` | the encoding of N-dimensional keys, pure |
 | `test_server.py` | the FastAPI wrapper's `/init`, `/info` and `/item` endpoints over HTTP, including the 400, 404, 423 and 500 responses; the error translator called directly |
-| `test_server_query.py` | the wrapper's `/list` and `/find` endpoints: prefix, depth, field predicates and limit, all sent in the query string |
+| `test_server_query.py` | the wrapper's `/list` and `/find` endpoints: prefix, depth, field predicates and limit, all sent in the query string; `value` decoded as JSON or kept as a string |
 
 ## Writing a test
 

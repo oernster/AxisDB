@@ -26,7 +26,10 @@ def _writer_try_open(db_path: str, q: mp.Queue) -> None:
 
 def test_two_writers_cannot_open_concurrently(tmp_path: Path) -> None:
     db_path = tmp_path / "db.json"
-    AxisDB.create(db_path, dimensions=1)
+    # Close the creating handle first; held open, it would refuse both children
+    # and the assertion below would pass for the wrong reason.
+    with AxisDB.create(db_path, dimensions=1):
+        pass
 
     q: mp.Queue = mp.Queue()
 
@@ -42,6 +45,9 @@ def test_two_writers_cannot_open_concurrently(tmp_path: Path) -> None:
     p1.join(timeout=5)
 
     assert q.get(timeout=2) is False
+    # The first writer really held the lock: a refused open would end it with
+    # an uncaught LockError and a non-zero exit code.
+    assert p1.exitcode == 0
 
 
 KEY = ("a",)

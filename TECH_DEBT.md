@@ -29,9 +29,9 @@ The ten existing test files are well chosen (`test_keycodec`, `test_slice`, `tes
 
 A consumer cannot ask the library what version it is. `axisdb.__version__` does not exist, so a bug report against AxisDB cannot include the version without the reporter going to their package metadata. Any code branching on library version has to use `importlib.metadata`.
 
-The minimal-public-API rule is right and `__all__` holding one name is right. `__version__` is not API bloat; it is the one attribute every published package is expected to carry. Add a `VERSION` file at root, read it in `axisdb/version.py` with a `0.0.0-dev` fallback, make `pyproject.toml` dynamic and re-export `__version__` alongside `AxisDB`.
+The minimal-public-API rule is right and `__all__` holding one name is right. `__version__` is not API bloat; it is the one attribute every published package is expected to carry.
 
-The commit history shows the cost of the current arrangement directly: four of the last eight commits are "Bump version". That is a manual edit to `pyproject.toml` and nothing else, which is exactly the step a `VERSION` file removes.
+The owner has decided the version moves to a `VERSION` file at root; the work is parked, not declined. The shape: `pyproject.toml` reads the file (`dynamic = ["version"]` with `version = {file = "VERSION"}`); `axisdb/version.py` answers `importlib.metadata.version("axisdb")` and falls back to reading `VERSION` only in a source checkout, then to `0.0.0-dev`; `__version__` is re-exported beside `AxisDB`. The metadata read comes first because an installed wheel carries no repository root, so a `VERSION` file beside the source is not there to read. DEVELOPMENT.md's Versioning section changes with it, since it says today that there is no `VERSION` file.
 
 ## 3. `axisdb/api.py` is 525 lines
 
